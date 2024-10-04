@@ -2,9 +2,7 @@
 title: "World Happiness Report Project"
 author: "Louis Denko"
 date: "2023-04-15"
-output:
-  rmarkdown::github_document: default
-  github_document: default
+output: rmarkdown::github_document
 ---
 
 ```{r, echo = FALSE}

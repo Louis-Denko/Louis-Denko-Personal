@@ -1,0 +1,121 @@
+---
+title: "World Happiness Report Project"
+author: "Louis Denko"
+date: "2023-04-15"
+output: rmarkdown::github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "README_figs/README-"
+)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/louie/OneDrive/Desktop/BANA 4137 HW/Final Project")
+library(tidyverse)
+World_Happiness_Report <- read_csv("World Happiness Report.csv")
+WHR <- World_Happiness_Report %>%
+  `colnames<-`(c('Country', 'Region', 'Year', 'Life_Ladder', 'Log_GDP_per_Capita', 'Social_Support', 'Life_Expectancy', 'Freedom_to_Make_Life_Choices', 'Generosity', 'Perceptions_of_Corruption', 'Positive_Affect', 'Negative_Affect', 'Confidence_in_National_Government'))
+```
+
+
+# Report
+
+## Variable Descriptions
+
+### Country Name
+The Name of each country
+
+### Regional Indicator
+What region the country is located 
+
+### Year
+Year of data collected
+
+### Life Ladder
+A score out of ten of based on Gallop Survey Data on how generally good life is in the country. The number presented is an average of each counties responses. 
+
+### Log GDP per Capita
+The natural log of each countries GDP to better fit the data
+
+### Social Support
+Country average of responses to if people feel as though they have friends or family to support them. Responses were Binary.
+
+### Healthy Life Expectancy at Birth
+The life expectancy each year
+
+### Freedom to Make Life Choices 
+Country average of responses to are people satisfied with their freedom to choose what they do in their lives. Responses were Binary
+
+### Generosity
+The residual value after regression based on the national average to the question have you made a charitable donation
+
+### Perceptions of Corruption
+Average of responses to is there widespread corruption in the government/businesses. Both of these were binary questions
+
+### Positive Affect 
+Measure that asks whether the respondent experienced certain positive feelings during the previous day
+
+### Negative Affect 
+Measure that asks whether the respondent experienced certain negative feelings during the previous day
+
+### Confidence in National Government
+The percentage of people that said they at least sometimes have confidence in their government 
+
+### Row Description
+Each row represents a country for each year 
+
+
+### NA Values
+Many of the NA values are from the region variable, so some counrties do not have a region listed. Many of these contries, such as Oman, and Syria ae located in the middle east, though not all.
+
+```{r Summary Stats, warning=FALSE}
+n_distinct(World_Happiness_Report$Year)
+
+World_Happiness_Report %>%
+  select(everything()) %>%
+  summarize_all(funs(sum(is.na(.))))
+
+```
+
+## Question 1
+
+How does corruption impact a counties' happiness?
+
+```{r warning=FALSE}
+WHR %>%
+  ggplot() +
+   geom_bin2d(aes(x = Life_Ladder, y = Perceptions_of_Corruption), bins = 20) +
+  scale_fill_viridis_c() +
+  geom_smooth(aes(x = Life_Ladder, y = Perceptions_of_Corruption,), method = 'lm', color = 'red', linewidth = .5, se = FALSE) +
+  facet_wrap(~Region) +
+  theme(
+    strip.text.x = element_text(size = 5))
+```
+We can see that generally there is a negative correlation between these two variables. The most extreme case of this is within Western Europe. It might be assumed that this is because of the history some countries have with having very corrupt governments. Oddly, there are a couple regions that have a positive correlation, though they are only slightly positive. It it likely these countries may be content with some corruption in their governments as they may still feel they are being well represented.
+
+
+## Question 2
+How has the happiness the countries with the highest gdp chnaged over time?
+```{r}
+WHR %>%
+  group_by(Country, Region) %>%
+  mutate(avg_GPD = mean(Log_GDP_per_Capita)) %>%
+  ungroup() %>%
+  mutate(Year = as.integer(Year)) %>%
+  group_by(Region) %>%
+  top_n(1, avg_GPD) %>%
+  arrange(desc(avg_GPD)) %>%
+  ggplot()+
+  geom_line(aes(x = Year, y = Life_Ladder, color = Country))+
+  facet_wrap(~Region) +
+  theme(
+    strip.text.x = element_text(size = 4))
+  
+
+```
+
+The pattern here is not as clear, though North America stands out as it was been on a fairly constant decline since 2008. We also notice that a lot of the countries have a decline since 2020. This is likely because of the covid pandemic, and while life has returned much more to normal, things such as bad economy or even work environments may still leave people feeling unhappy.
+
