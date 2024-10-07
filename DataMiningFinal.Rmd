@@ -1,0 +1,232 @@
+---
+title: "Final Project"
+author: "Louis Denko"
+date: "2023-11-28"
+output: github_document
+---
+
+```{r message=F, warning=F}
+library(tidyverse)
+library(tidymodels)
+library(vip)
+library(here)
+library(pdp)
+```
+
+```{r warning=F, message=F}
+customer_retention <- read_csv(here('Data', 'customer_retention.csv'))
+```
+
+
+## Data Prep and Exploratory Analysis
+
+```{r}
+customer_retention %>% 
+  summarise(across(everything(), ~ sum(is.na(.))))
+```
+
+```{r}
+customer_retention %>%
+  filter(is.na(TotalCharges))
+
+customer_retention <- customer_retention %>%
+  na.omit()
+
+```
+Removed Rows that contained NA values which were all in Total Charges
+
+
+```{r}
+customer_retention %>%
+  select(Status, Dependents) %>%
+  group_by(Status) %>%
+  ggplot(aes(Status)) +
+  geom_bar() +
+  facet_wrap(~Dependents)
+```
+
+
+```{r}
+customer_retention %>%
+  ggplot(aes(Status)) +
+  geom_bar() +
+  facet_wrap(~InternetService)
+```
+
+```{r}
+customer_retention %>%
+  ggplot(aes(MonthlyCharges)) +
+  geom_bar(fill='blue') +
+  facet_wrap(~Status)
+```
+
+```{r}
+customer_retention %>%
+  ggplot(aes(Tenure, fill = customer_retention$Status)) +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~Status)
+```
+
+### Splitting Data
+
+```{r}
+customer_retention <- customer_retention %>%
+  mutate(Status = factor(Status))
+
+set.seed(111)
+cr_split <- initial_split(customer_retention, prop = .7, strata = Status)
+cr_train <- training(cr_split)
+cr_test <- testing(cr_split)
+```
+
+### Decision Tree
+
+```{r}
+dt_recipe <- recipe(
+  Status ~ ., 
+  data = cr_train
+)
+
+set.seed(111)
+dt_kfold <- vfold_cv(v=10, data=cr_train,strata = Status)
+
+dt_model <- decision_tree(
+  mode = 'classification',
+  cost_complexity = tune(),
+  tree_depth = tune(),
+  min_n = tune()
+)
+
+dt_hyper_grid <- grid_regular(
+  cost_complexity(),
+  tree_depth(),
+  min_n()
+)
+
+dt_results <- tune_grid(dt_model, dt_recipe, resamples = dt_kfold, grid = dt_hyper_grid)
+show_best(dt_results, metric = 'roc_auc')
+```
+
+```{r}
+dt_best_model <- select_best(dt_results, 'roc_auc')
+
+dt_final_wf <- workflow() %>%
+  add_recipe(dt_recipe) %>%
+  add_model(dt_model) %>%
+  finalize_workflow(dt_best_model)
+
+dt_final_fit <- dt_final_wf %>%
+  fit(data=cr_train)
+
+
+dt_final_fit %>%
+  extract_fit_parsnip() %>%
+  vip()
+```
+
+```{r}
+dt_final_fit %>%
+  predict(cr_test) %>%
+  bind_cols(cr_test %>% select(Status)) %>%
+  conf_mat(truth = Status, estimate = .pred_class)
+```
+
+
+### Logistic Regression
+
+
+```{r}
+lr_model <- logistic_reg() 
+
+lr_recipe <- recipe(Status ~., data=cr_train)
+
+set.seed(111) 
+lr_kfold <- vfold_cv(v=10, strata = Status, data=cr_train)
+
+lr_fit <- workflow() %>%
+  add_recipe(lr_recipe) %>%
+  add_model(lr_model) %>%
+  fit_resamples(lr_kfold)
+
+lr_fit %>%
+  collect_metrics() %>%
+  filter(.metric == 'roc_auc')
+```
+
+```{r}
+lr_best_parameters <- select_best(lr_fit, metric = 'roc_auc')
+
+lr_final_wf <- workflow() %>%
+  add_recipe(lr_recipe) %>%
+  add_model(lr_model) %>%
+  finalize_workflow(lr_best_parameters)
+
+lr_final_model <- lr_final_wf %>%
+  fit(data=cr_train) %>%
+  extract_fit_parsnip()
+ 
+vip(lr_final_model$fit)
+```
+
+```{r warning=F}
+lr_final_model %>%
+  predict(cr_test) %>%
+  bind_cols(cr_test %>% select(Status)) %>%
+  conf_mat(truth = Status, estimate = .pred_class)
+```
+
+
+### Random Forest
+
+```{r}
+rf_recipe <- recipe(Status ~ ., data= cr_train)
+
+rf_model <- rand_forest(
+  mode = 'classification',
+  trees = tune(),
+  mtry = tune(),
+  min_n = tune()) %>%
+  set_engine('ranger', importance = 'impurity')
+
+set.seed(111)
+kfold <- vfold_cv(cr_train, v=10)
+
+hyper_grid <- grid_regular(
+  trees(range = c(100,500)),
+  mtry(range = c(1,19)),
+  min_n(),
+  levels = 5
+)
+
+set.seed(111)
+rf_results <-  tune_grid(rf_model, rf_recipe, resamples = kfold, grid = hyper_grid)
+show_best(rf_results, metric = 'roc_auc')
+```
+
+```{r}
+best_rf_hyperparameters <- select_best(rf_results, metric = 'roc_auc')
+
+final_rf_wf <- workflow() %>%
+  add_recipe(rf_recipe) %>%
+  add_model(rf_model) %>%
+  finalize_workflow(best_rf_hyperparameters)
+
+final_rf_fit <- final_rf_wf %>%
+  fit(data = cr_train)
+
+final_rf_fit %>%
+  extract_fit_parsnip() %>%
+  vip()
+```
+
+
+```{r}
+final_rf_fit %>%
+  predict(cr_test) %>%
+  bind_cols(cr_test %>% select(Status)) %>%
+  conf_mat(truth = Status, estimate = .pred_class)
+```
+
+
+
+
