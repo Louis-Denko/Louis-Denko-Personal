@@ -1,5 +1,5 @@
 ---
-title: "Final Project"
+title: "Data Mining Final Project"
 author: "Louis Denko"
 date: "2023-11-28"
 output: github_document
@@ -14,7 +14,7 @@ library(pdp)
 ```
 
 ```{r warning=F, message=F}
-customer_retention <- read_csv(here('Data', 'customer_retention.csv'))
+customer_retention <- read_csv('customer_retention.csv')
 ```
 
 
@@ -189,11 +189,11 @@ rf_model <- rand_forest(
   set_engine('ranger', importance = 'impurity')
 
 set.seed(111)
-kfold <- vfold_cv(cr_train, v=10)
+kfold <- vfold_cv(cr_train, v=5)
 
 hyper_grid <- grid_regular(
-  trees(range = c(100,500)),
-  mtry(range = c(1,19)),
+  trees(range = c(100,300)),
+  mtry(range = c(1,15)),
   min_n(),
   levels = 5
 )
