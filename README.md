@@ -5,14 +5,10 @@ date: "2024-10-18"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Introduction
 
-
 My name is Louis Denko. I am a graduate from the University of Cincinnati with a bachelor of science in business analytics and a minor in finance. I am very passionate about working with data and using it to find and develop solutions. 
+
 
 ## This Repository
 
